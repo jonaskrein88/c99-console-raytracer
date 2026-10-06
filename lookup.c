@@ -149,7 +149,6 @@ void ce_create_lookup_table(AsciiLUT *lut, const Color colors[], size_t num_colo
                 {
                     //float v = (float)char_index / density_divisor;
                     float v = asciiPalette.coverages[char_index];
-                    //v = pow(v,2.2);
 
                     for (size_t i = 0; i < num_colors; i++)
                     {
@@ -198,7 +197,7 @@ void ce_create_lookup_table(AsciiLUT *lut, const Color colors[], size_t num_colo
 
 // save look-up table to a binary file
 bool ce_save_lut_binary(const AsciiLUT *lut, const char *filepath) {
-    FILE *file = fopen(filepath, "wb"); // Open in Write-Binary mode
+    FILE *file = fopen(filepath, "wb"); // Write-Binary mode
     if (!file) {
         perror("Failed to open LUT file for saving");
         return false;
@@ -211,7 +210,7 @@ bool ce_save_lut_binary(const AsciiLUT *lut, const char *filepath) {
 
 // load a look-up table from a binary file
 bool ce_load_lut_binary(AsciiLUT *lut, const char *filepath) {
-    FILE *file = fopen(filepath, "rb"); // Open in Read-Binary mode
+    FILE *file = fopen(filepath, "rb"); // Read-Binary mode
     if (!file) {
         perror("Failed to open LUT file for loading");
         return false;
@@ -226,11 +225,9 @@ bool ce_load_lut_binary(AsciiLUT *lut, const char *filepath) {
 AsciiPixel _lookup_lut(const AsciiLUT *lut, Color color) {
     
     color = vec3_saturate(color);
-    // 2. Map 0.0-1.0 to 0-31 integer indices using rounding (+0.5f)
     int idx_r = (int)(color.x * (float)(LUT_SIZE-1) + 0.5f);
     int idx_g = (int)(color.y * (float)(LUT_SIZE-1) + 0.5f);
     int idx_b = (int)(color.z * (float)(LUT_SIZE-1) + 0.5f);
 
-    // 3. Return the precalculated structural element instantly O(1)
     return lut->elements[idx_r][idx_g][idx_b];
 }

@@ -63,7 +63,8 @@ Matrix matrix_fromYRotation(float angle);
 Matrix matrix_fromZRotation(float angle);
 Matrix matrix_fromTranslation(Vec3 v);
 
-void matrix_init_fromScale(Matrix *mat, float x);
+Matrix matrix_fromScale(float x);
+
 Vec3 vec3_transform(Matrix *m, Vec3 v);
 //void vec3_transform(Matrix *m, Vec3 *v);
 Vec3 vec3_transform_direction(Matrix *mat, Vec3 d);

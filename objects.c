@@ -51,6 +51,11 @@ void ce_object_assign_material(Object *obj, Material *mtl, size_t index){
     if (index < MAX_MTLS) obj->materials[index] = mtl;
 }
 
+void ce_object_assign_global_material(Object *obj, Material *mtl)
+{
+    for (int i=0;i<MAX_MTLS; i++)
+    obj->materials[i] = mtl;
+}
 
 
 
@@ -81,6 +86,11 @@ void ce_rotate_z(Object *object, float degrees)
 void ce_translate(Object *object, Vec3 v)
 {
     Matrix m = matrix_fromTranslation(v);
+    object_transform(object,&m);
+}
+void ce_scale(Object *object, float s)
+{
+    Matrix m = matrix_fromScale(s);
     object_transform(object,&m);
 }
 

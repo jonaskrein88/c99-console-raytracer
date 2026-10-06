@@ -175,6 +175,7 @@ typedef struct {
     uint8_t num_samples;
     size_t size;
     float dither_amount;
+    float dropout_chance;
 } ShaderParams_Post_Dispersion;
 void shader_post_dispersion(RenderSettings *renderSettings, FragmentData *frag, void *payload, AsciiPixel *out_pixel);
 

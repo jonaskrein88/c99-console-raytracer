@@ -14,10 +14,6 @@
 
 void ce_write_text(RenderSettings *settings, uint8_t x, uint8_t y, Color bg, Color fg, const char *txt)
 {
-    //char *txt = "This is a simple text\nthat I want to write to the screen!!!";
-
-    //uint8_t x = 25;
-    //uint8_t y = 50;
 
     uint8_t current_col = x;
     uint8_t current_row = y;
@@ -43,9 +39,9 @@ void ce_write_text(RenderSettings *settings, uint8_t x, uint8_t y, Color bg, Col
 
 
 
-void ce_draw_post_processing(RenderSettings *renderSettings, bool use_write_back, Material *mtl)
+void ce_draw_post_processing_masked(RenderSettings *renderSettings, bool use_write_back, int8_t stencil, Material *mtl)
 {
-    //if (renderSettings==NULL) return;
+
     AsciiCanvas *target_canvas;
     AsciiCanvas *canvas = &renderSettings->canvas;
 
@@ -76,6 +72,12 @@ void ce_draw_post_processing(RenderSettings *renderSettings, bool use_write_back
             
             //Vec3 camera_dir = camera_ray(&renderSettings->camera, uv.x, uv.y);
             size_t xy = x + y*canvas->width;
+
+            // check if we use a stencil
+            if (stencil>-1){
+                uint8_t stencilBufValue = renderSettings->stencil_buffer[xy];
+                if (stencil != stencilBufValue) continue;
+            }
             FragmentData frag = {
                 .x_coord = x,
                 .y_coord = y,
@@ -105,6 +107,17 @@ void ce_draw_post_processing(RenderSettings *renderSettings, bool use_write_back
     }
 }
 
+// calls ce_draw_post_processing_masked with stencil=-1
+void ce_draw_post_processing(RenderSettings *renderSettings, bool use_write_back, Material *mtl)
+{
+    ce_draw_post_processing_masked(renderSettings, use_write_back, -1, mtl);
+}
+
+
+
+
+
+
 
 
 void ce_draw_convex_polygon(RenderSettings *renderSettings, Vec2 *vertices, int vertex_count, Color color) {
@@ -118,7 +131,6 @@ void ce_draw_convex_polygon(RenderSettings *renderSettings, Vec2 *vertices, int 
         if (vertices[i].y < min_y) min_y = vertices[i].y;
         if (vertices[i].y > max_y) max_y = vertices[i].y;
     }
-    // 1. SAFE CLIPPING: Guard vertical bounds to prevent out-of-bounds loops
     min_y = MAX(0, min_y);
     max_y = MIN(renderSettings->render_height - 1, max_y);
 
@@ -132,11 +144,9 @@ void ce_draw_convex_polygon(RenderSettings *renderSettings, Vec2 *vertices, int 
 
             if (p1.y > p2.y) { Vec2 temp = p1; p1 = p2; p2 = temp; }
 
-            // 2. SAFE INTERSECTION: Only compute if the scanline actually cuts the edge
             if (y >= p1.y && y < p2.y) {
                 int16_t dy = (int16_t)p2.y - (int16_t)p1.y;
                 if (dy > 0) {
-                    // Use a 64-bit int temporarily to completely avoid integer multiplication overflow
                     int64_t intersect_x = p1.x + ((int64_t)(y - p1.y) * (p2.x - p1.x)) / dy;
                     
                     left_x = MIN(left_x, (int)intersect_x);
@@ -145,7 +155,6 @@ void ce_draw_convex_polygon(RenderSettings *renderSettings, Vec2 *vertices, int 
             }
         }
 
-        // 3. SAFE HORIZONTAL CLIPPING: Clamp to pixel grid edges
         left_x = MAX(0, left_x);
         right_x = MIN(renderSettings->render_width - 1, right_x);
 
@@ -153,7 +162,6 @@ void ce_draw_convex_polygon(RenderSettings *renderSettings, Vec2 *vertices, int 
             AsciiPixel *pixel_row = &renderSettings->canvas.pixels[y * renderSettings->render_width + left_x];
             int count = right_x - left_x + 1;
             
-            // Loop unrolling for maximum CPU cache filling
             while (count >= 4) {
                 pixel_row[0].bg = color;
                 pixel_row[1].bg = color;
@@ -182,62 +190,12 @@ void ce_draw_rectangle(RenderSettings *renderSettings, uint16_t x, uint16_t y, u
             renderSettings->canvas.pixels[idx].bg = color;
         }
     }
-        return ;
-    // 1. Calculate bounding boxes
-    int x1 = x;
-    int y1 = y;
-    int x2 = x + w - 1;
-    int y2 = y + h - 1;
-    uint16_t width = renderSettings->render_width;
-    uint16_t height = renderSettings->render_height;
-
-    // 2. Direct Clipping: Instantly drop the shape if completely out of frame
-    if (x2 < 0 || x1 >= width || y2 < 0 || y1 >= height) return;
-
-    // Clamp coordinates to screen boundaries
-    x1 = MAX(0, x1);
-    y1 = MAX(0, y1);
-    x2 = MIN(width - 1, x2);
-    y2 = MIN(width - 1, y2);
-
-    int row_pixels = x2 - x1 + 1;
-
-    // 3. Blazing Fast Contiguous Memory Writing
-    for (int current_y = y1; current_y <= y2; current_y++) {
-        AsciiPixel *pixel_row = &renderSettings->canvas.pixels[current_y * width + x1];
-        
-        // If your color is a single repeating byte pattern (like 0xFFFFFFFF for white or 0x00000000 for black), 
-        // you can use the standard C library's ultra-optimized memset:
-        // memset(pixel_row, color, row_pixels * sizeof(uint32_t));
-        
-        // Otherwise, use basic 32-bit loop unrolling:
-        int count = row_pixels;
-        while (count >= 4) {
-            pixel_row[0].bg = color; 
-            pixel_row[1].bg = color;
-            pixel_row[2].bg = color; 
-            pixel_row[3].bg = color;
-            pixel_row[0].fg = color; 
-            pixel_row[1].fg = color;
-            pixel_row[2].fg = color; 
-            pixel_row[3].fg = color;
-            pixel_row += 4; count -= 4;
-        }
-        while (count > 0) {
-            (*pixel_row++).bg = color;
-            (*pixel_row++).fg = color;
-            count--;
-        }
-    }
+    return ;
 }
 
 
 void ce_draw_sprite(RenderSettings *renderSettings, size_t pos_x, size_t pos_y, size_t width, size_t height, Material *mtl)
 {
-    //TextureImage *tex = renderSettings->textures[tex_id];
-    //size_t img_width = tex->width;
-    //size_t img_height = tex->height;
-    //size_t anchor_pos = pos_x + pos_y* renderSettings->canvas.width;
 
 
     for (size_t x = 0; x<width; x++){
@@ -385,24 +343,6 @@ Vec2 ce_draw_info_window_with_shadow(RenderSettings *renderSettings, uint16_t x,
 
 
 
-
-
-
-
-
-
-// looks dope
-void replace_char(RenderSettings *renderSettings, const char* title){
-
-    for (size_t x = 0; x<renderSettings->canvas.width; x++)
-    {
-        for (size_t y = 0; y<renderSettings->canvas.height; y++)
-        {
-            uint16_t idx = x + y*renderSettings->canvas.width;
-            memcpy( renderSettings->canvas.pixels[idx].bytes, "═", 3*sizeof(char));
-        }
-    }
-}
 
 
 void ce_draw_camera_info(RenderSettings *renderSettings, Color bg, Color fg)

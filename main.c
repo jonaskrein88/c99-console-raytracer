@@ -169,7 +169,7 @@ int main() {
 
     // N64 Logo
     
-    AsciiLUT *lut = &lut_xterm_256;
+    AsciiLUT *lut = lut_xterm_256;
     float dithering = 0.1f;
     float specular = 0.5f;
 
@@ -177,17 +177,17 @@ int main() {
     Material mtl_yellow     = ce_new_material_principled(lut, C_ANSI_BRIGHT_YELLOW, specular, dithering);
     Material mtl_blue       = ce_new_material_principled(lut, (Vec3){0.2f, 0.2f, 1.f},specular, dithering);
     Material mtl_green      = ce_new_material_principled(lut, C_ANSI_BRIGHT_GREEN,  specular, dithering);
-    Material mtl_white      = ce_new_material_principled(lut, C_ANSI_WHITE,         specular, dithering);
+    Material mtl_white      = ce_new_material_principled(lut, C_WHITE,         specular, dithering);
 
 
-    Object o_n64   = ce_new_object_from_file("models/n64.obj");
+    Object o_n64   = ce_new_object_from_file(settings,"models/n64.obj");
     ce_object_assign_material(&o_n64, &mtl_yellow, 0);
     ce_object_assign_material(&o_n64, &mtl_green,  1);
     ce_object_assign_material(&o_n64, &mtl_blue,   2);
     ce_object_assign_material(&o_n64, &mtl_red,    3);
     ce_add_object_to_scene(settings,&o_n64);
 
-    Object o_plane = ce_new_object_from_file("models/plane.obj");
+    Object o_plane = ce_new_object_from_file(settings,"models/plane.obj");
     ce_object_assign_material(&o_plane, &mtl_white, 0);
     ce_add_object_to_scene(settings,&o_plane);
 
@@ -213,14 +213,147 @@ int main() {
     }
     
 
+    
+
 
     #elif 1
     
+    // Teapot reflection
 
+    
+    float specular = 0.5f;
+    float dithering = 0.25f;
+    Color dark_blue = color_new_xterm_save_color(0.1f,0.1f,0.7f);
+
+    Material mtl_main      = ce_new_material_principled(NULL, C_ANSI_BRIGHT_YELLOW, specular, 0.0f);
+    
+    Material mtl_chrome      = ce_new_material_principled(NULL, C_BLACK,         0.0f, 0.0f);
+    ce_principled_material_set_reflection(&mtl_chrome, 0.9f, 0.5f);
+
+    Object o_teapot   = ce_new_object_from_file(settings, "models/teapot.obj");
+
+    ce_object_assign_global_material(&o_teapot, &mtl_main); 
+    ce_add_object_to_scene(settings,&o_teapot);
+
+    Object o_plane = ce_new_object_from_file(settings,"models/plane.obj");
+    ce_object_assign_material(&o_plane, &mtl_chrome, 0);
+    ce_add_object_to_scene(settings,&o_plane);
+    
+    Light light1 = {
+        .type=LIGHT_DIRECTIONAL,
+        .pos=(Vec3)    { 7, 5, -5 }, 
+        .color=(Color) { 1.f, 1.f, 1.f},
+        .power=0.5f
+    };
+    Light light2 = {
+        .pos=(Vec3)    { -10, 12, 3 },
+        .color=(Color) { 1.f, 0.5f, 0.f},
+        .power=0.5f
+    };
+    ce_add_light_to_scene(settings, &light1);
+    ce_add_light_to_scene(settings, &light2);
+
+    //settings->camera.is_targeted  = false;
+    settings->render_shadows = true;
+    //settings->fog_enabled = true;
+    Material mtl_lut = ce_new_material_post_lut(lut_xterm_256_symbols_vibrant, dithering);
+
+    while (ce_play(settings)) {
+        ce_clear_canvas(settings);
+        ce_render_frame(settings);
+        ce_object_manual_turntable(&o_teapot);
+        ce_draw_post_processing(settings, false, &mtl_lut);
+        ce_draw_title(settings, C_ANSI_BLUE, C_WHITE, "  Raytraced Reflections - XTERM 256 ", " artstation.com/shellac ");
+        ce_display_canvas(settings);       
+    }
+
+
+
+
+
+
+
+
+
+
+    #elif 0
+    
+    
+    float specular = 1.0f;
+    float dithering = 0.2f;
+
+    Material mtl_main      = ce_new_material_gradient_ramp_blocks((Color[]){C_ANSI_BLACK, C_ANSI_BRIGHT_YELLOW},2, specular, dithering);
+    Material mtl_plain     = ce_new_material_gradient_ramp_blocks((Color[]){C_ANSI_BLACK, C_ANSI_WHITE},2, specular, dithering);
+    Material mtl_reactive  = ce_new_material_gradient_ramp_blocks((Color[]){C_ANSI_BLACK, C_ANSI_BRIGHT_RED},2, specular, dithering);
+    Material mtl_control   = ce_new_material_gradient_ramp_blocks((Color[]){C_ANSI_BLACK, C_ANSI_WHITE},2, specular, dithering);
+    ce_principled_material_set_ambient(&mtl_main, 0.1f);
+    ce_principled_material_set_ambient(&mtl_plain, 0.1f);
+    //
+    size_t tex_main     = ce_import_texture(settings,"models/scooter/Main_Base_color.bmp");
+    size_t tex_plain    = ce_import_texture(settings,"models/scooter/Plain_Base_color.bmp");
+    size_t tex_reactive = ce_import_texture(settings,"models/scooter/ReactiveStuff_Base_color.bmp");
+    size_t tex_control  = ce_import_texture(settings,"models/scooter/Control_Base_color.bmp");
+    
+    ce_gradient_material_set_texture(&mtl_main, tex_main);
+    ce_gradient_material_set_texture(&mtl_plain, tex_plain);
+    ce_gradient_material_set_texture(&mtl_reactive, tex_reactive);
+    ce_gradient_material_set_texture(&mtl_control, tex_control);
+
+    Object o_city   = ce_new_object_from_file(settings, "models/scooter/scooter.obj");
+    //ce_translate(&o_city, (Vec3){0,0.9f,0});
+    //Object o_sphere   = ce_new_object_from_file(settings, "models/teapot.obj");
+
+    ce_object_assign_global_material(&o_city, &mtl_main); //  some walls
+//    ce_object_assign_material(&o_city, &mtl_base, 1); // mechanical parts side
+    ce_object_assign_material(&o_city, &mtl_plain, 2); // wings (plain material)
+    ce_object_assign_material(&o_city, &mtl_reactive, 3); // mechanical parts back/turbine
+    ce_object_assign_material(&o_city, &mtl_control, 4); // steering bar
+    ce_object_assign_material(&o_city, &mtl_main, 5); // mechanical parts side
+    ce_object_assign_material(&o_city, &mtl_main, 6); // mechanical parts side
+    ce_add_object_to_scene(settings,&o_city);
+
+    
+    //int8_t tex_sky_clouds  = ce_import_texture(settings,"textures/sm64_clouds.bmp");
+    //Material mtl = ce_new_material_environment_texture(NULL, ENV_SPHERICAL, 1.0, 0.0f,tex_sky_clouds);
+    //settings->environment = &mtl;
+    
+
+    Light light1 = {
+        .type=LIGHT_DIRECTIONAL,
+        .pos=(Vec3)    { 8, 12, -5 }, 
+        .color=(Color) { 1.f, 1.f, 1.f},
+        .power=1.5f
+    };
+    Light light2 = {
+        .pos=(Vec3)    { -10, 12, 3 },
+        .color=(Color) { 1.f, 0.5f, 0.f},
+        .power=1.5f
+    };
+    ce_add_light_to_scene(settings, &light1);
+    ce_add_light_to_scene(settings, &light2);
+
+    //settings->camera.is_targeted  = false;
+    settings->render_shadows = true;
+    //settings->fog_enabled = true;
+    
+
+    Material mtl_lut = ce_new_material_post_lut(lut_xterm_256_symbols, 0.25f);
+
+    while (ce_play(settings)) {
+        ce_clear_canvas(settings);
+        ce_render_frame(settings);
+        ce_object_manual_turntable(&o_city);
+        //ce_draw_post_processing(settings, false, &mtl_lut);
+        ce_draw_title(settings, C_ANSI_BLUE, C_WHITE, "  Raytraced Reflections - XTERM 256 ", " artstation.com/shellac ");
+        ce_display_canvas(settings);       
+    }
+
+
+
+    #elif 0
+    
     // Reflection Test
     
-    
-
     float specular = 1.0f;
 
     Material mtl_white      = ce_new_material_principled(NULL, C_ANSI_WHITE,         specular, 0.0f);
@@ -231,9 +364,11 @@ int main() {
     ce_principled_material_set_ambient(&mtl_white, 0.1f);
 
     Object o_sphere   = ce_new_object_from_file(settings, "models/sphere.obj");
+    ce_translate(&o_sphere, (Vec3){0,0.9f,0});
+    //Object o_sphere   = ce_new_object_from_file(settings, "models/teapot.obj");
+
     ce_object_assign_material(&o_sphere, &mtl_red, 0);
     ce_add_object_to_scene(settings,&o_sphere);
-    ce_translate(&o_sphere, (Vec3){0,0.9f,0});
 
     Object o_sphere02 = o_sphere; 
     ce_object_assign_material(&o_sphere02, &mtl_white, 0);
@@ -263,6 +398,8 @@ int main() {
     };
     ce_add_light_to_scene(settings, &light1);
     //ce_add_light_to_scene(settings, &light2);
+
+    settings->camera.is_targeted  = false;
     settings->render_shadows = true;
     
 
@@ -272,9 +409,15 @@ int main() {
         ce_clear_canvas(settings);
         ce_render_frame(settings);
         ce_draw_post_processing(settings, false, &mtl_lut);
+        ce_draw_title(settings, C_ANSI_BLUE, C_WHITE, "  Raytraced Reflections - XTERM 256 ", " artstation.com/shellac ");
         ce_display_canvas(settings);       
     }
-    
+
+
+
+
+
+
 
 
 
@@ -465,7 +608,7 @@ int main() {
 
 
 
-    #elif 1
+    #elif 0
     // Statue
 
     Light light1 = {
@@ -540,7 +683,7 @@ int main() {
 
 
 
-    #elif 1
+    #elif 0
     // Deer
 
     Light light1 = {
@@ -674,6 +817,8 @@ int main() {
         ce_display_canvas(settings);
     }
 
+
+
     #elif 0
 
     // glitchy elephant dispersion
@@ -762,7 +907,7 @@ int main() {
     #elif 0
 
     // skull glitchy using BLUR
-    //
+    
     Object skull   = ce_new_object_from_file(settings, "models/skull/skull.obj");
     size_t texture = ce_import_texture(settings,"models/skull/skull.bmp");
    
@@ -800,7 +945,7 @@ int main() {
     
 
     
-    Material blur_mtl = ce_new_material_post_blur(lut_ansi_16_symbols, 4,1, 0.35);
+    Material blur_mtl = ce_new_material_post_blur(lut_ansi_16_symbols, 16, 8, 0.35);
 
     //settings->background_color = C_ANSI_DARK_MAGENTA;
     settings->render_shadows = true;
@@ -831,6 +976,7 @@ int main() {
         ce_clear_canvas(settings);
         ce_render_frame(settings);
         ce_draw_post_processing(settings, true, &blur_mtl);
+
         ce_draw_camera_info(settings,C_ANSI_BLACK, C_ANSI_BLUE);
         
 
@@ -848,7 +994,7 @@ int main() {
             " > Perfect to created some nice glitchy cyberpunk visuals.";
         ce_draw_info_window(settings, anchor.x, anchor.y, box_size.x, box_size.y, C_ANSI_BLUE, C_ANSI_WHITE," Scriptable Shaders ","", text, true);
         ce_draw_object_info(settings, &skull, C_BLACK, C_RED, " Skull ");
-        
+        ce_draw_title(settings, C_BLACK, C_BLUE, "  Horizntal Blur Demo - ANSI 16  ", " by Jonas Krein - artstation.com/shellac");
         //ce_draw_info_box(settings, C_ANSI_BLACK, C_PICO8_GREEN);
         ce_display_canvas(settings);
     }
@@ -872,9 +1018,8 @@ int main() {
 
 
 
-
-
     #elif 0
+    // Speeder
     
 
     Object speeder  = ce_new_object_from_file("models/speeder/speeder.obj");
@@ -951,7 +1096,7 @@ int main() {
 
 
     #elif 0
-
+    // Lighthouse
 
     Object lighthouse  = ce_new_object_from_file("models/lighthouse/lighthouse.obj");
     ce_add_object_to_scene(settings, &lighthouse);
@@ -1335,7 +1480,12 @@ int main() {
 
 
 
+
+
+
+
     #if 0
+    
     Object buildings[] = {
         building_00,
         building_01,
@@ -1427,12 +1577,15 @@ int main() {
 
 
 
+
+
+
     free(lut_xterm_256);
     free(lut_xterm_256_symbols);
     free(lut_xterm_256_symbols_vibrant);
     free(lut_ansi_16);
     free(lut_ansi_16_symbols);
 
-    printf("exiting with no errors");
+    printf("Exiting with no errors");
     return 0;
 }

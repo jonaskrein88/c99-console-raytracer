@@ -37,12 +37,14 @@ Mesh *ce_import_obj(RenderSettings *renderSettings, const char* filepath);
 Object ce_new_object_from_file(RenderSettings *renderSettings, const char *filepath);
 
 void ce_object_assign_material(Object *obj, Material *mtl, size_t index);
+void ce_object_assign_global_material(Object *obj, Material *mtl);
 
 static void object_transform(Object *object, Matrix *m);
 void ce_rotate_x(Object *object, float degrees);
 void ce_rotate_y(Object *object, float degrees);
 void ce_rotate_z(Object *object, float degrees);
 void ce_translate(Object *object, Vec3 v);
+void ce_scale(Object *object, float s);
 
 CE_PointCloud ce_make_point_grid(uint8_t num_x, uint8_t num_y,float spacing_x,float spacing_y);
 CE_PointCloud ce_make_point_cloud(Vec3 bounds, size_t num);

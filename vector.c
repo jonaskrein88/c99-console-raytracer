@@ -240,11 +240,14 @@ Matrix matrix_fromTranslation(Vec3 v) {
 	mat.m[11] = v.z;
 	return mat;
 }
-void matrix_init_fromScale(Matrix *mat, float x) {
-    mat->m[0] = x;
-	mat->m[5] = x;
-	mat->m[10] = x;
+Matrix matrix_fromScale(float x) {
+	Matrix mat = matrix_identity();
+    mat.m[0] = x;
+	mat.m[5] = x;
+	mat.m[10] = x;
+    return mat;
 }
+
 Vec3 vec3_transform(Matrix *m, Vec3 v) {
     float x = m->m[0] * v.x + m->m[1] * v.y + m->m[2] * v.z + m->m[3];
     float y = m->m[4] * v.x + m->m[5] * v.y + m->m[6] * v.z + m->m[7];
@@ -260,6 +263,11 @@ Vec3 vec3_transform_direction(Matrix *mat, Vec3 d) {
     res.z = mat->m[8]*d.x + mat->m[9]*d.y + mat->m[10]*d.z;
     return res;
 }
+
+
+
+
+
 
 
 Vec4 vec4_transform(Matrix *m, Vec4 v) {
@@ -327,7 +335,7 @@ void matrix_mult(Matrix *a, Matrix *b) {
 }
 
 
-Matrix matrix_inverse_trs(const Matrix *mat) {
+Matrix matrix_inverse_trs_old(const Matrix *mat) {
     Matrix inv = {0};
 
     // 1. Transpose the 3x3 Rotation block (Flips rows and columns)
@@ -353,6 +361,45 @@ Matrix matrix_inverse_trs(const Matrix *mat) {
 
     return inv;
 }
+#include <math.h>
+
+Matrix matrix_inverse_trs(const Matrix *mat) {
+    Matrix inv = {0};
+
+    // 1. Calculate the squared scale factors from the original matrix columns
+    float sx_sq = mat->m[0]*mat->m[0] + mat->m[4]*mat->m[4] + mat->m[8]*mat->m[8];
+    float sy_sq = mat->m[1]*mat->m[1] + mat->m[5]*mat->m[5] + mat->m[9]*mat->m[9];
+    float sz_sq = mat->m[2]*mat->m[2] + mat->m[6]*mat->m[6] + mat->m[10]*mat->m[10];
+
+    // Avoid division by zero if an object is scaled to 0
+    float inv_sx_sq = (sx_sq > 1e-6f) ? 1.0f / sx_sq : 0.0f;
+    float inv_sy_sq = (sy_sq > 1e-6f) ? 1.0f / sy_sq : 0.0f;
+    float inv_sz_sq = (sz_sq > 1e-6f) ? 1.0f / sz_sq : 0.0f;
+
+    // 2. Transpose and divide by squared scale
+    inv.m[0] = mat->m[0] * inv_sx_sq;  inv.m[1] = mat->m[4] * inv_sx_sq;  inv.m[2] = mat->m[8] * inv_sx_sq;
+    inv.m[4] = mat->m[1] * inv_sy_sq;  inv.m[5] = mat->m[5] * inv_sy_sq;  inv.m[6] = mat->m[9] * inv_sy_sq;
+    inv.m[8] = mat->m[2] * inv_sz_sq;  inv.m[9] = mat->m[6] * inv_sz_sq;  inv.m[10] = mat->m[10] * inv_sz_sq;
+
+    // Extract original translation components
+    float tx = mat->m[3];
+    float ty = mat->m[7];
+    float tz = mat->m[11];
+
+    // 3. Compute the new translation column using the scaled inverse rows
+    inv.m[3]  = -(tx * inv.m[0] + ty * inv.m[1] + tz * inv.m[2]);
+    inv.m[7]  = -(tx * inv.m[4] + ty * inv.m[5] + tz * inv.m[6]);
+    inv.m[11] = -(tx * inv.m[8] + ty * inv.m[9] + tz * inv.m[10]);
+
+    // 4. Set the immutable bottom row
+    inv.m[12] = 0.0f;
+    inv.m[13] = 0.0f;
+    inv.m[14] = 0.0f;
+    inv.m[15] = 1.0f;
+
+    return inv;
+}
+
 
 
 

@@ -229,9 +229,10 @@ void shader_surface_gradient_ramp(RenderSettings *renderSettings, FragmentData *
         surface = clamp01(surface);
         Color a,b;
         float t = gradient_map(surface, params->colors, params->num_colors, &a, &b);
-        if      (t <= 1.0f / params->num_colors)   _ascii_shader_from_symbol_list(b, b, params->symbols, params->num_symbols, t, out_pixel);
-        else if (t > 1.0f - 1.0f/params->num_colors) _ascii_shader_from_symbol_list(a, a, params->symbols, params->num_symbols, t, out_pixel);
-        else _ascii_shader_from_symbol_list(b, a, params->symbols, params->num_symbols, t, out_pixel);
+        //if      (t <= 1.0f / params->num_colors)   _ascii_shader_from_symbol_list(b, b, params->symbols, params->num_symbols, t, out_pixel);
+        //else if (t > 1.0f - 1.0f/params->num_colors) _ascii_shader_from_symbol_list(a, a, params->symbols, params->num_symbols, t, out_pixel);
+        //else 
+        _ascii_shader_from_symbol_list(b, a, params->symbols, params->num_symbols, t, out_pixel);
     }
     
     // interpolated colors
@@ -359,6 +360,7 @@ void shader_surface_principled(RenderSettings *renderSettings, FragmentData *fra
         Color r = p.bg;
         r = vec3_mul(r,params->reflection_amount*fresnel);
         surface = vec3_add(surface, r);
+        surface = vec3_saturate(surface);
 
         //surface = vec3_lerp(surface, r, params->reflection_amount);
     }
@@ -699,7 +701,7 @@ void shader_post_blur(RenderSettings *renderSettings, FragmentData *frag, void *
     }
     color = vec3_div(color_accum,weight_accum);
     
-    //if (luma(color) > 0.0)
+    //if (luma(color) > 0.05)
     { 
         color = dither(color, frag->x_coord, frag->y_coord, params->dither_amount);
     }
@@ -735,7 +737,7 @@ void shader_post_dispersion(RenderSettings *renderSettings, FragmentData *frag, 
     float weight_accum = 0;
     
     float r = hash11(frag->y_coord);
-    if (r>0.5){
+    if (r<params->dropout_chance){
         return;
     }
     float x = remap_from01(r, 0.5f, 1.25f);

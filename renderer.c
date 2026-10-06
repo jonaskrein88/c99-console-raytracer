@@ -222,130 +222,6 @@ size_t ce_import_texture(RenderSettings *renderSettings, char *filepath)
 }
 
 
-/*
-typedef enum {
-    BIN_BLACK   = 0, // 000
-    BIN_BLUE    = 1, // 001
-    BIN_GREEN   = 2, // 010
-    BIN_CYAN    = 3, // 011 (Green + Blue)
-    BIN_RED     = 4, // 100
-    BIN_MAGENTA = 5, // 101 (Red + Blue)
-    BIN_YELLOW  = 6, // 110 (Red + Green)
-    BIN_WHITE   = 7  // 111 (Red + Green + Blue)
-} BinaryColorMap;
-
-static inline uint8_t _index_from_color(Color input)
-{
-    // 1. Round each channel cleanly to a strict 0 or 1 integer flag
-    int r_bit = (int)(input.x + 0.5f);
-    int g_bit = (int)(input.y + 0.5f);
-    int b_bit = (int)(input.z + 0.5f);
-
-    // 2. Bound checks to ensure values stay within 0 and 1
-    if (r_bit > 1) r_bit = 1; else if (r_bit < 0) r_bit = 0;
-    if (g_bit > 1) g_bit = 1; else if (g_bit < 0) g_bit = 0;
-    if (b_bit > 1) b_bit = 1; else if (b_bit < 0) b_bit = 0;
-
-    // 3. Shift bits into a single integer between 0 and 7
-    // Red becomes the 4s place, Green the 2s place, Blue the 1s place
-    uint8_t index = (r_bit << 2) | (g_bit << 1) | b_bit;
-    switch (index) {
-        case BIN_BLACK:   return 0;
-        case BIN_RED:     return 1;
-        case BIN_GREEN:   return 2;
-        case BIN_BLUE:    return 3;
-        case BIN_CYAN:    return 4;
-        case BIN_MAGENTA: return 5;
-        case BIN_YELLOW:  return 6;
-        case BIN_WHITE:   return 7;
-        default:          return 0;
-    }
-}
-
-
-void ce_remap_indexed_texture(RenderSettings *renderSettings, Color colors[], uint8_t num_colors, size_t tex_id){
-    TextureImage *img = renderSettings->textures[tex_id];
-    for (int y = img->height - 1; y >= 0; y--) {
-        for (int x = 0; x < img->width; x++) {
-            int idx = y * img->width + x;
-            Color c = img->pixels[idx];
-            uint8_t index = _index_from_color(c);
-            if (index>= num_colors){
-                printf("ERROR indexed color out of range\n");
-                return;
-            }
-            img->pixels[idx] = colors[index];
-        }
-    }
-}
-*/
-
-
-
-
-
-
-
-
-/*
-static bool solveQuadratic(float a, float b, float c, float *out_x0, float *out_x1)
-{
-    float x0,x1;
-    float discr = b * b - 4 * a * c;
-    if (discr < 0) return false;
-    else if (discr == 0) x0 = x1 = -0.5 * b / a;
-    else {
-        float q = (b > 0) ?
-            -0.5 * (b + sqrtf(discr)) :
-            -0.5 * (b - sqrtf(discr));
-        x0 = q / a;
-        x1 = c / q;
-    }
-    if (x0 > x1) {
-        float temp = x0;
-        x0 = x1;
-        x1 = temp;
-    }
-
-    *out_x0 = x0;
-    *out_x1 = x1;
-
-    return true;
-}
-
-
-bool sphere_calculate(Sphere *sphere, Vec3 ray_origin, Vec3 ray_dir, float *out_depth, Vec3 *out_N)
-{
-    Vec3 L = vec3_sub(ray_origin, sphere->center);
-    float a = vec3_dot(ray_dir, ray_dir);
-    float b = 2.0f * vec3_dot(ray_dir,L);
-    float c = vec3_dot(L, L) - (sphere->radius * sphere->radius);
-    float t0, t1;
-    if (!solveQuadratic(a, b, c, &t0, &t1)) return false;
-
-    if (t0 > t1) {
-        float temp = t0;
-        t0 = t1;
-        t1 = temp;
-    }
-
-    if (t0 < 0) {
-        t0 = t1;                  // if t0 is negative use t1 instead
-        if (t0 < 0) return false; // both t0 and t1 are negative
-    }
-
-    float t = t0;
-    Vec3 hitPos = vec3_add(ray_origin, vec3_mul(ray_dir, t));
-    *out_N = vec3_normalize( vec3_sub( hitPos, sphere->center ));
-    *out_depth = t;
-
-    return true;
-}
-*/
-
-
-
-
 
 
 static Normal get_interpolated_vertex_normal(Mesh *mesh, Face *face, Vec3 barycentrics){
@@ -607,6 +483,10 @@ RenderSettings* ce_create_rendersettings()
     renderer->environment = NULL;
     
     renderer->_num_textures = 0;
+
+    renderer->fog_enabled = false;
+    renderer->fog_start = 3.0f;
+    renderer->fog_end = 30.0f;
     
     renderer->_grey_box_material = calloc(1,sizeof(Material));
     *renderer->_grey_box_material = ce_new_material_full((Color){0.75f,0.75f,0.75f}, 1.0f);
@@ -936,6 +816,7 @@ Material ce_new_material_principled(AsciiLUT *lut, Color color, float spec_amoun
     params->spec_sharpness = 0.75f;
     params->dither_amount = dither_amount;
     params->fog_enabled = true;
+    params->rim_light_amount = 0.125f;
     Material new = {
         .parameters = (void*)params,
         .shader = shader_surface_principled
@@ -961,10 +842,12 @@ void ce_principled_material_set_ambient(Material *mtl, float amount){
     sh->ambient = amount;
 }
 // fresnel 0-1 where 1 is chrome
+// also set the rim light effect to 0
 void ce_principled_material_set_reflection(Material *mtl, float mult, float fresnel){
     ShaderParams_Surface_Principled *sh = mtl->parameters;
     sh->reflection_amount = mult;
     sh->reflection_fresnel = fresnel;
+    sh->rim_light_amount = 0;
 }
 
 void ce_principled_material_set_rim_light(Material *mtl, float amount){
@@ -1411,8 +1294,8 @@ bool ce_play(RenderSettings *settings)
         if (key_down('A')) camera_strafe(&settings->camera, -.05f);
         if (key_down('J')) camera_rotate_yaw(&settings->camera,  .025f);
         if (key_down('L')) camera_rotate_yaw(&settings->camera, -.025f);
-        if (key_down('I')) camera_rotate_pitch(&settings->camera, -.025f);
-        if (key_down('K')) camera_rotate_pitch(&settings->camera,  .025f);
+        if (key_down('I')) camera_rotate_pitch(&settings->camera, .025f);
+        if (key_down('K')) camera_rotate_pitch(&settings->camera,  -.025f);
         if (key_down('U')) camera_strafe_vertical(&settings->camera, .1f);
         if (key_down('O')) camera_strafe_vertical(&settings->camera, -.1f);
     }

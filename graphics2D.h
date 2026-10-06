@@ -12,6 +12,7 @@
 
 
 void ce_write_text(RenderSettings *settings, uint8_t x, uint8_t y, Color bg, Color fg, const char *txt);
+void ce_draw_post_processing_masked(RenderSettings *renderSettings, bool use_write_back, int8_t stencil, Material *mtl);
 void ce_draw_post_processing(RenderSettings *renderSettings, bool use_write_back, Material *mtl);
 void ce_draw_convex_polygon(RenderSettings *renderSettings, Vec2 *vertices, int vertex_count, Color color);
 void ce_draw_rectangle(RenderSettings *renderSettings, uint16_t x, uint16_t y, uint16_t w, uint16_t h, Color color);

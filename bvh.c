@@ -51,7 +51,7 @@ void grow_aabb(AABB* to_grow, const AABB* to_include) {
 
 void update_node_bounds(Mesh* mesh, AABB* node_bounds, const int* face_indices, int first_face, int face_count) {
     node_bounds->min = (Vec3){  FLT_MAX, FLT_MAX, FLT_MAX };
-    node_bounds->max = (Vec3){  FLT_MIN, FLT_MIN, FLT_MIN };
+    node_bounds->max = (Vec3){  -FLT_MAX, -FLT_MAX, -FLT_MAX };
 
     for (int i = 0; i < face_count; i++) {
         int face_idx = face_indices[first_face + i];
@@ -73,7 +73,6 @@ int choose_split_plane(const BVHNode* node, float* out_split_pos) {
     } else if (extent_z > extent_x && extent_z > extent_y) {
         axis = 2; // Z axis
     }
-    // Calculate the geometric middle along the chosen axis
     if (axis == 0) {
         *out_split_pos = node->bounds.min.x + extent_x * 0.5f;
     } else if (axis == 1) {
@@ -92,20 +91,16 @@ int choose_split_plane(const BVHNode* node, float* out_split_pos) {
 
 
 void subdivide(Mesh* mesh, int node_idx, int* nodes_used) {
-    // 1. Get a pointer to the current node we are processing
     BVHNode* node = &mesh->bvh_nodes[node_idx];
 
-    // 2. Base Case: If this node has 2 or fewer faces, stop splitting!
-    // It remains a leaf node holding onto its faces.
     if (node->face_count <= 2) {
         return;
     }
 
-    // 3. Choose the longest split plane using the helper function we designed
     float split_pos;
     int axis = choose_split_plane(node, &split_pos);
 
-    // 4. Partition Loop: Rearrange the face indices around the split line
+    // partitioning loop
     int i = node->left_first;
     int j = node->left_first + node->face_count - 1;
 
@@ -127,34 +122,32 @@ void subdivide(Mesh* mesh, int node_idx, int* nodes_used) {
         }
     }
 
-    // 5. Safety Fallback: If all faces ended up on one side, do not split
+    // if all faces ended up on one side, do not split
     int left_count = i - node->left_first;
     if (left_count == 0 || left_count == node->face_count) {
         return; 
     }
 
-    // 6. Allocate child node slots from the pre-allocated pool
+    // allocate child node slots from the pre-allocated pool
     int left_child_idx = *nodes_used;
     int right_child_idx = *nodes_used + 1;
     *nodes_used += 2;
 
-    // 7. Initialize Left Child
+    // init left
     mesh->bvh_nodes[left_child_idx].left_first = node->left_first;
     mesh->bvh_nodes[left_child_idx].face_count = left_count;
 
-    // 8. Initialize Right Child
+    // init right
     mesh->bvh_nodes[right_child_idx].left_first = i;
     mesh->bvh_nodes[right_child_idx].face_count = node->face_count - left_count;
 
-    // 9. Turn the parent node into an internal branch node pointing to its children
+    // parent node to branch
     node->left_first = left_child_idx;
     node->face_count = 0; 
 
-    // 10. Shrink child bounding boxes to fit their specific faces tightly
     update_node_bounds(mesh, &mesh->bvh_nodes[left_child_idx].bounds,  mesh->face_indices, mesh->bvh_nodes[left_child_idx].left_first,  mesh->bvh_nodes[left_child_idx].face_count);
     update_node_bounds(mesh, &mesh->bvh_nodes[right_child_idx].bounds, mesh->face_indices, mesh->bvh_nodes[right_child_idx].left_first, mesh->bvh_nodes[right_child_idx].face_count);
 
-    // 11. Recursively subdivide both children
     subdivide(mesh, left_child_idx, nodes_used);
     subdivide(mesh, right_child_idx, nodes_used);
 }

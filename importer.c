@@ -56,7 +56,7 @@ static void precalculate_bounding_box(Mesh *mesh)
 
 typedef struct{
     size_t num;
-    char strings[32][64];
+    char strings[64][512];
 }StringList;
 
 
@@ -66,11 +66,11 @@ int find_or_insert(StringList *list, char *name)
     for (size_t i = 0; i<list->num; i++)
     {
         char *entry = list->strings[i];
-        int cmp = strncmp(name, entry, 256);
+        int cmp = strncmp(name, entry, 512);
         if (cmp == 0) return i;
     }
-    if (list->num >= 32) return -1;                     // guard if number of strings > 32
-    strncpy(list->strings[list->num], name, 256 );
+    if (list->num >= 64) return -1;                     // guard if number of strings > 32
+    strncpy(list->strings[list->num], name, 512 );
     list->strings[list->num][255] = '\0';                // force null terminator if string longer than 64
     list->num++;
     return list->num-1;
